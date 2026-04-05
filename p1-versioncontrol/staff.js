@@ -8,6 +8,30 @@ const staff = [
         foto:"foto/prisma.png",
     },
     {
+        name: "Duhairillah",
+        division: "PTI",
+        batch: "2025",
+        role: "Member",
+        github: "SerenaaaaRN",
+        foto:"",
+    },
+    {
+        name: "Muhammad Fachri Syahputra",
+        division: "PIP",
+        batch: "2025",
+        role: "Member",
+        github: "fachriisy",
+        foto:"",
+    },
+    {
+        name: "Felix Gilbert",
+        division: "PTI",
+        batch: "2026",
+        role: "Member",
+        github: "feliix-bert",
+        foto:"",
+    },
+    {
         name: "M. Aditia Putra Pratama",
         division: "PTI",
         batch: "2025",
@@ -15,7 +39,7 @@ const staff = [
         github: "aditia-prtm",
         foto:"",
     },
-      {
+    {
         name: "Alfinandra Rashyid Pratama",
         division: "PIP",
         batch: "2026",
@@ -38,14 +62,22 @@ const staff = [
         batch: "2026",
         role: "Member",
         github: "tegarprasety0",
+    },
+    {
+        name: "M.Farrel Rizqierli Fairuz",
+        division: "PTI",
+        batch: "2025",
+        role: "Member",
+        github: "qiuFrrl",
         foto:"",
-    },{
-        name: "MUhammad fachry imthiyaz",
+    },
+    {
+        name: "Muhammad Fachry Imthiyaz",
         division: "PTI",
         batch: "2026",
         role: "Member",
         github: "fachry",
         foto:"foto/fachry.png",
 
-    }
+    },
 ];
