@@ -1,2 +1,3 @@
 Prisma  : https://github.com/ak7prisma/Card-Battle
 Radit : https://github.com/raditkal/PEMVIS
+Fachri S: https://github.com/fachriisy/bebek-fachri.git
