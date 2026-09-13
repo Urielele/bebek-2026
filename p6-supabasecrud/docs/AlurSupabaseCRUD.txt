@@ -1,0 +1,201 @@
+ALUR SUPABASE CRUD - Football Club
+
+1. KONFIGURASI SUPABASE (.env.local)
+
+  VITE_SUPABASE_URL    = https://YOUR-PROJECT-REF.supabase.co
+  VITE_SUPABASE_ANON_KEY = your-anon-public-key
+
+  - Ambil dari dashboard Supabase → Project Settings → API
+  - URL (Project URL) + anon/public key (tidak perlu secret key di frontend)
+  - Client dibuat sekali di src/lib/supabaseClient.js via createClient()
+  - Kalau salah satu belum di-set, app langsung melempar error yang jelas
+
+  Schema tabel "clubs" (SQL Editor di dashboard Supabase):
+
+    create table clubs (
+      id          uuid primary key default gen_random_uuid(),
+      strTeam     text not null,
+      strStadium  text not null,
+      intFormedYear integer not null,
+      strBadge    text,
+      created_at  timestamptz not null default now()
+    );
+
+  Jangan lupa aktifkan Row Level Security (RLS): enable RLS lalu buat policy
+  "Enable read for all" (select) dan "Enable insert/update/delete for all"
+  agar bisa diakses via anon key (untuk materi belajar).
+
+
+2. STATE AWAL (src/App.jsx)
+
+  const [clubs, setClubs]        = useState([])      // array klub
+  const [loading, setLoading]    = useState(true)     // status loading
+  const [error, setError]        = useState(null)     // pesan error daftar
+  const [reloadKey, setReloadKey]= useState(0)       // kunci untuk re-fetch
+  const [editingClub, setEditingClub] = useState(null) // klub yang sedang diedit
+  const [formError, setFormError]= useState(null)     // pesan error form (create/update)
+
+
+3. READ - MENGAMBIL DATA (src/App.jsx)
+
+  useEffect(() => {
+    fetchClubs()
+  }, [reloadKey])
+
+  const fetchClubs = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const { data, error } = await supabase
+        .from('clubs')                             // pilih tabel
+        .select('*')                               // ambil semua kolom
+        .order('created_at', { ascending: false }) // terbaru di atas
+      if (error) throw new Error(error.message)
+      setClubs(data ?? [])                         // fallback [] kalau null
+    } catch (err) {
+      setError(err.message || 'Terjadi kesalahan yang tidak diketahui')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  Poin penting:
+  - Hasil Supabase selalu berbentuk { data, error } (TIDAK ada HTTP status)
+  - error !== null → request bermasalah, lempar ke state error
+  - data === null (tabel kosong/tidak ada baris) → pakai fallback []
+  - reloadKey berubah → useEffect jalan lagi → READ ulang
+
+
+4. CREATE - MENAMBAH KLUB (App.jsx → ClubForm.jsx)
+
+  const handleAddClub = async (club) => {
+    setFormError(null)
+    try {
+      const { data, error } = await supabase
+        .from('clubs')
+        .insert(club)     // kirim objek hasil validasi Zod
+        .select()         // minta baris yang baru dibuat
+        .single()         // data langsung 1 objek (bukan array)
+      if (error) throw new Error(error.message)
+      setClubs((prev) => [data, ...prev])  // prepend ke state
+    } catch (err) {
+      setFormError(err.message)  // tampilkan di form
+      throw err                  // bikin form TIDAK di-reset
+    }
+  }
+
+  Di ClubForm:
+  - handleSubmit(onSubmit) → Zod lulus dulu (via zodResolver)
+  - onSubmit() menunggu (await) handleAddClub → kalau sukses baru reset()
+  - isSubmitting true saat request berjalan → tombol di-disable
+
+
+5. UPDATE - MENGEDIT KLUB (App.jsx → ClubForm.jsx)
+
+  Klik tombol "Edit" di ClubCard:
+      onEdit(club) → setEditingClub(club) + scroll ke form
+      → ClubForm mendeteksi editableClub.id, mengisi ulang nilai form (reset)
+
+  Simpan perubahan (via form yang sama):
+
+  const handleUpdateClub = async (id, club) => {
+    const { id: _ignored, ...fields } = club   // id tidak ikut di-update
+    setFormError(null)
+    try {
+      const { error } = await supabase
+        .from('clubs')
+        .update(fields)     // kolom baru
+        .eq('id', id)       // filter baris by primary key
+      if (error) throw new Error(error.message)
+      setClubs((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, ...fields } : c))
+      )
+      setEditingClub(null)  // keluar dari mode edit
+    } catch (err) {
+      setFormError(err.message)
+      throw err
+    }
+  }
+
+  Poin penting:
+  - .eq('id', id) memfilter HANYA baris dengan id tersebut
+  - Tanpa .eq() update akan mengenai SEMUA baris → wajib ada
+  - Judul section & tombol form berubah saat mode edit ("Simpan Perubahan")
+
+
+6. DELETE - MENGHAPUS KLUB (App.jsx → ClubCard.jsx)
+
+  Klik tombol "Hapus" di ClubCard → konfirmasi window.confirm:
+
+  const handleDeleteClub = async (id) => {
+    const club = clubs.find((c) => c.id === id)
+    if (!window.confirm(`Hapus klub "${club?.strTeam ?? 'ini'}"?`)) return
+    try {
+      const { error } = await supabase
+        .from('clubs')
+        .delete()
+        .eq('id', id)       // hapus baris dengan id tersebut
+      if (error) throw new Error(error.message)
+      setClubs((prev) => prev.filter((c) => c.id !== id))
+    } catch (err) {
+      setError(err.message)  // tampil di ErrorBox daftar
+    }
+  }
+
+
+7. TAMPILAN BERDASARKAN STATE (src/components/ClubList.jsx)
+
+  ClubList menerima props: clubs, loading, error, onRetry, onEdit, onDelete
+
+  a. loading === true
+     → tampilkan LoadingSkeleton (6 kartu abstrak berkedip)
+
+  b. loading === false && error ada
+     → tampilkan ErrorBox + tombol "Coba Lagi"
+     → onRetry = setReloadKey(n + 1) → READ ulang
+
+  c. loading === false && error === null && clubs kosong
+     → tampilkan "Belum ada klub yang tersedia."
+
+  d. loading === false && error === null && clubs ada data
+     → grid ClubCard, setiap kartu punya tombol Edit & Hapus
+
+
+8. RENDER CLUB CARD (src/components/ClubCard.jsx)
+
+  Setiap klub ditampilkan sebagai kartu dengan:
+  - Logo/badge → gambar dari strBadge, atau ikon Shield kalau gagal/tidak ada
+  - Nama klub  → strTeam, fallback "Klub Tanpa Nama"
+  - Stadion    → strStadium, fallback "Tidak diketahui"
+  - Tahun      → intFormedYear, ditampilkan sebagai "Tahun 1878"
+  - Tombol Edit → onEdit(club) → isi ulang form
+  - Tombol Hapus → onDelete(club) → konfirmasi lalu DELETE
+
+
+9. ALUR KESELURUHAN
+
+  App mount
+      ↓
+  useEffect → fetchClubs() (READ)
+      ↓
+  setLoading(true) → LoadingSkeleton tampil
+      ↓
+  supabase.from('clubs').select()...
+      ↓
+  ┌────────────┬──────────────┐
+  │  GAGAL     │  BERHASIL    │
+  ↓            ↓              ↓
+setError()   setClubs(data)
+Loading      setLoading(false)
+selesai      ↓
+  ↓          ClubList render grid ClubCard
+ErrorBox     ↓
+tampil       Setiap ClubCard:
++ tombol     - render badge/ikon, nama, stadion, tahun
+Coba Lagi    - tombol Edit → isi form → UPDATE
+             - tombol Hapus → konfirmasi → DELETE
+             ↓
+             CREATE: form → Zod lulus → insert → reset → klub di atas daftar
+
+  Retry flow:
+  User klik "Coba Lagi" → setReloadKey(n+1) → useEffect jalan lagi → READ ulang
