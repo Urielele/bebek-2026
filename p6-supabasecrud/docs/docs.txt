@@ -1,0 +1,3 @@
+Supabase:https://supabase.com/docs
+Supabase JS Client:https://supabase.com/docs/reference/javascript/introduction
+PostgREST Query (from/select/insert/update/delete):https://supabase.com/docs/reference/javascript/select
